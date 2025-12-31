@@ -1,9 +1,19 @@
-import { create } from "zustand";
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp } from "firebase/firestore";
 import { db } from "@/src/services/firebase";
 import { Habit, HabitCompletion } from "@/src/types/habit";
 import { getTodayDate } from "@/src/utils/dateHelpers";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { create } from "zustand";
 import { useAuthStore } from "./authStore";
+import { useOfflineStore } from "./offlineStore";
 
 interface HabitState {
   habits: Habit[];
@@ -11,7 +21,9 @@ interface HabitState {
   loading: boolean;
   fetchHabits: () => Promise<void>;
   fetchCompletions: (startDate?: string, endDate?: string) => Promise<void>;
-  addHabit: (habit: Omit<Habit, "id" | "createdAt" | "streak"> & { userId?: string }) => Promise<string>;
+  addHabit: (
+    habit: Omit<Habit, "id" | "createdAt" | "streak"> & { userId?: string }
+  ) => Promise<string>;
   updateHabit: (habitId: string, updates: Partial<Habit>) => Promise<void>;
   deleteHabit: (habitId: string) => Promise<void>;
   toggleCompletion: (habitId: string, date?: string) => Promise<void>;
@@ -33,7 +45,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
       const habitsRef = collection(db, "habits");
       const q = query(habitsRef, where("userId", "==", user.uid));
       const snapshot = await getDocs(q);
-      
+
       const habits: Habit[] = [];
       snapshot.forEach((doc) => {
         habits.push({ id: doc.id, ...doc.data() } as Habit);
@@ -53,7 +65,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
     try {
       const completionsRef = collection(db, "completions");
       let q = query(completionsRef, where("userId", "==", user.uid));
-      
+
       if (startDate) {
         q = query(q, where("date", ">=", startDate));
       }
@@ -84,29 +96,99 @@ export const useHabitStore = create<HabitState>((set, get) => ({
       createdAt: Date.now(),
     };
 
-    const docRef = await addDoc(collection(db, "habits"), habit);
-    const newHabit: Habit = { id: docRef.id, ...habit };
-    
-    set((state) => ({ habits: [...state.habits, newHabit] }));
-    return docRef.id;
+    // Generate temporary ID for optimistic update
+    const tempId = `temp_${Date.now()}`;
+    const optimisticHabit: Habit = { id: tempId, ...habit };
+
+    // Optimistic update
+    set((state) => ({ habits: [...state.habits, optimisticHabit] }));
+
+    try {
+      const docRef = await addDoc(collection(db, "habits"), habit);
+      const newHabit: Habit = { id: docRef.id, ...habit };
+
+      // Replace temp with real ID
+      set((state) => ({
+        habits: state.habits.map((h) => (h.id === tempId ? newHabit : h)),
+      }));
+      return docRef.id;
+    } catch (error) {
+      // Rollback on failure
+      set((state) => ({
+        habits: state.habits.filter((h) => h.id !== tempId),
+      }));
+
+      // Queue for offline sync
+      useOfflineStore.getState().addPendingWrite({
+        operation: "add",
+        collection: "habits",
+        data: habit,
+      });
+      throw error;
+    }
   },
 
   updateHabit: async (habitId: string, updates: Partial<Habit>) => {
-    const habitRef = doc(db, "habits", habitId);
-    await updateDoc(habitRef, updates);
-    
+    // Save previous state for rollback
+    const previousState = get().habits.find((h) => h.id === habitId);
+
+    // Optimistic update
     set((state) => ({
       habits: state.habits.map((h) =>
         h.id === habitId ? { ...h, ...updates } : h
       ),
     }));
+
+    try {
+      const habitRef = doc(db, "habits", habitId);
+      await updateDoc(habitRef, updates);
+    } catch (error) {
+      // Rollback on failure
+      if (previousState) {
+        set((state) => ({
+          habits: state.habits.map((h) =>
+            h.id === habitId ? previousState : h
+          ),
+        }));
+      }
+
+      // Queue for offline sync
+      useOfflineStore.getState().addPendingWrite({
+        operation: "update",
+        collection: "habits",
+        data: { id: habitId, ...updates },
+      });
+      throw error;
+    }
   },
 
   deleteHabit: async (habitId: string) => {
-    await deleteDoc(doc(db, "habits", habitId));
+    // Save previous state for rollback
+    const deletedHabit = get().habits.find((h) => h.id === habitId);
+
+    // Optimistic update
     set((state) => ({
       habits: state.habits.filter((h) => h.id !== habitId),
     }));
+
+    try {
+      await deleteDoc(doc(db, "habits", habitId));
+    } catch (error) {
+      // Rollback on failure
+      if (deletedHabit) {
+        set((state) => ({
+          habits: [...state.habits, deletedHabit],
+        }));
+      }
+
+      // Queue for offline sync
+      useOfflineStore.getState().addPendingWrite({
+        operation: "delete",
+        collection: "habits",
+        data: { id: habitId },
+      });
+      throw error;
+    }
   },
 
   toggleCompletion: async (habitId: string, date: string = getTodayDate()) => {
@@ -119,15 +201,35 @@ export const useHabitStore = create<HabitState>((set, get) => ({
     );
 
     if (existing) {
-      // Toggle completion
-      const completionRef = doc(db, "completions", existing.id);
-      await updateDoc(completionRef, { completed: !existing.completed });
-      
+      // Save previous state
+      const previousCompleted = existing.completed;
+
+      // Optimistic update
       set((state) => ({
         completions: state.completions.map((c) =>
           c.id === existing.id ? { ...c, completed: !c.completed } : c
         ),
       }));
+
+      try {
+        const completionRef = doc(db, "completions", existing.id);
+        await updateDoc(completionRef, { completed: !previousCompleted });
+      } catch (error) {
+        // Rollback on failure
+        set((state) => ({
+          completions: state.completions.map((c) =>
+            c.id === existing.id ? { ...c, completed: previousCompleted } : c
+          ),
+        }));
+
+        // Queue for offline sync
+        useOfflineStore.getState().addPendingWrite({
+          operation: "toggle",
+          collection: "completions",
+          data: { id: existing.id, habitId, completed: !previousCompleted },
+        });
+        throw error;
+      }
     } else {
       // Create new completion
       const completion: Omit<HabitCompletion, "id"> = {
@@ -138,12 +240,42 @@ export const useHabitStore = create<HabitState>((set, get) => ({
         createdAt: Date.now(),
       };
 
-      const docRef = await addDoc(collection(db, "completions"), completion);
-      const newCompletion: HabitCompletion = { id: docRef.id, ...completion };
-      
+      // Generate temporary ID
+      const tempId = `temp_${Date.now()}`;
+      const optimisticCompletion: HabitCompletion = {
+        id: tempId,
+        ...completion,
+      };
+
+      // Optimistic update
       set((state) => ({
-        completions: [...state.completions, newCompletion],
+        completions: [...state.completions, optimisticCompletion],
       }));
+
+      try {
+        const docRef = await addDoc(collection(db, "completions"), completion);
+        const newCompletion: HabitCompletion = { id: docRef.id, ...completion };
+
+        // Replace temp with real ID
+        set((state) => ({
+          completions: state.completions.map((c) =>
+            c.id === tempId ? newCompletion : c
+          ),
+        }));
+      } catch (error) {
+        // Rollback on failure
+        set((state) => ({
+          completions: state.completions.filter((c) => c.id !== tempId),
+        }));
+
+        // Queue for offline sync
+        useOfflineStore.getState().addPendingWrite({
+          operation: "add",
+          collection: "completions",
+          data: completion,
+        });
+        throw error;
+      }
     }
 
     // Update streak
@@ -159,7 +291,8 @@ export const useHabitStore = create<HabitState>((set, get) => ({
     for (let i = habitCompletions.length - 1; i >= 0; i--) {
       const completionDate = new Date(habitCompletions[i].date);
       const daysDiff = Math.floor(
-        (currentDate.getTime() - completionDate.getTime()) / (1000 * 60 * 60 * 24)
+        (currentDate.getTime() - completionDate.getTime()) /
+          (1000 * 60 * 60 * 24)
       );
 
       if (daysDiff === 0 || daysDiff === 1) {
@@ -186,9 +319,8 @@ export const useHabitStore = create<HabitState>((set, get) => ({
     const todayCompletions = completions.filter(
       (c) => c.date === today && c.completed
     );
-    
+
     if (habits.length === 0) return 0;
     return Math.round((todayCompletions.length / habits.length) * 100);
   },
 }));
-

@@ -5,11 +5,17 @@ import {
   StyleSheet,
   FlatList,
   RefreshControl,
+  SafeAreaView,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { MotiView } from "moti";
 import { useHabitStore } from "@/src/store/habitStore";
 import { Habit } from "@/src/types/habit";
+import { useTheme } from "@/src/context/ThemeContext";
+import { Card, Badge, EmptyState } from "@/src/components/ui";
 
 export default function StreakScreen() {
+  const { theme } = useTheme();
   const { habits, fetchHabits, loading } = useHabitStore();
 
   useEffect(() => {
@@ -18,40 +24,51 @@ export default function StreakScreen() {
 
   const sortedHabits = [...habits].sort((a, b) => b.streak - a.streak);
 
-  const renderHabit = ({ item }: { item: Habit }) => {
-    const getStreakColor = (streak: number) => {
-      if (streak >= 30) return "#ff6b00";
-      if (streak >= 7) return "#ff9500";
-      return "#ffb340";
-    };
+  const getStreakColor = (streak: number) => {
+    if (streak >= 30) return theme.colors.warning;
+    if (streak >= 7) return theme.colors.secondary;
+    return theme.colors.info;
+  };
 
+  const renderHabit = ({ item, index }: { item: Habit; index: number }) => {
     return (
-      <View style={styles.habitCard}>
-        <View style={styles.habitHeader}>
-          <Text style={styles.habitIcon}>{item.icon}</Text>
-          <View style={styles.habitInfo}>
-            <Text style={styles.habitName}>{item.name}</Text>
-            <Text style={styles.habitGoal}>{item.goalType}</Text>
+      <MotiView
+        from={{ opacity: 0, translateY: 20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'spring', delay: index * 50 }}
+      >
+        <Card style={styles.habitCard}>
+          <View style={styles.habitHeader}>
+            <View style={[styles.iconContainer, { backgroundColor: theme.colors.primaryLight }]}>
+              <Text style={styles.habitIcon}>{item.icon}</Text>
+            </View>
+            <View style={styles.habitInfo}>
+              <Text style={[styles.habitName, { color: theme.colors.text }]}>{item.name}</Text>
+              <Text style={[styles.habitGoal, { color: theme.colors.textSecondary }]}>
+                {item.goalType === 'check' ? 'Daily check-in' : `${item.goalValue} ${item.goalType}`}
+              </Text>
+            </View>
+            <View style={styles.streakContainer}>
+              <Ionicons name="flame" size={24} color={getStreakColor(item.streak)} />
+              <Text style={[styles.streakNumber, { color: getStreakColor(item.streak) }]}>
+                {item.streak}
+              </Text>
+              <Text style={[styles.streakLabel, { color: theme.colors.textSecondary }]}>days</Text>
+            </View>
           </View>
-          <View style={styles.streakContainer}>
-            <Text style={[styles.streakNumber, { color: getStreakColor(item.streak) }]}>
-              {item.streak}
-            </Text>
-            <Text style={styles.streakLabel}>days</Text>
+          <View style={[styles.progressBar, { backgroundColor: theme.colors.surfaceVariant }]}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${Math.min((item.streak / 30) * 100, 100)}%`,
+                  backgroundColor: getStreakColor(item.streak),
+                },
+              ]}
+            />
           </View>
-        </View>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${Math.min((item.streak / 30) * 100, 100)}%`,
-                backgroundColor: getStreakColor(item.streak),
-              },
-            ]}
-          />
-        </View>
-      </View>
+        </Card>
+      </MotiView>
     );
   };
 
@@ -59,26 +76,35 @@ export default function StreakScreen() {
   const totalStreaks = sortedHabits.reduce((sum, h) => sum + h.streak, 0);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Streaks</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>Streaks</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+          Keep the momentum going! 🔥
+        </Text>
         <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{longestStreak}</Text>
-            <Text style={styles.statLabel}>Longest</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{totalStreaks}</Text>
-            <Text style={styles.statLabel}>Total</Text>
-          </View>
+          <Card style={styles.statCard}>
+            <Ionicons name="trophy" size={32} color={theme.colors.warning} />
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{longestStreak}</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Longest</Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <Ionicons name="flame" size={32} color={theme.colors.secondary} />
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{totalStreaks}</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Total Days</Text>
+          </Card>
         </View>
       </View>
 
       {sortedHabits.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No habits yet</Text>
-          <Text style={styles.emptySubtext}>Start tracking habits to see your streaks!</Text>
-        </View>
+        <EmptyState
+          icon="flame-outline"
+          title="No Streaks Yet"
+          description="Start completing habits to build your streaks!"
+          actionLabel="View Habits"
+          onAction={() => {}}
+        />
       ) : (
         <FlatList
           data={sortedHabits}
@@ -89,123 +115,104 @@ export default function StreakScreen() {
             <RefreshControl
               refreshing={loading}
               onRefresh={fetchHabits}
+              tintColor={theme.colors.primary}
+              colors={[theme.colors.primary]}
             />
           }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
   header: {
-    backgroundColor: "#fff",
     padding: 20,
-    paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    paddingBottom: 16,
   },
   title: {
     fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 16,
-    color: "#000",
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    marginBottom: 20,
   },
   statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
+    flexDirection: 'row',
+    gap: 12,
   },
-  statItem: {
-    alignItems: "center",
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 16,
+    gap: 8,
   },
   statValue: {
     fontSize: 32,
-    fontWeight: "bold",
-    color: "#ff6b00",
-    marginBottom: 4,
+    fontWeight: 'bold',
   },
   statLabel: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: 12,
   },
   list: {
     padding: 16,
+    paddingTop: 8,
   },
   habitCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   habitHeader: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
+    gap: 12,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   habitIcon: {
-    fontSize: 40,
-    marginRight: 12,
+    fontSize: 24,
   },
   habitInfo: {
     flex: 1,
   },
   habitName: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 4,
-    color: "#000",
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
   },
   habitGoal: {
-    fontSize: 14,
-    color: "#666",
-    textTransform: "capitalize",
+    fontSize: 12,
   },
   streakContainer: {
-    alignItems: "center",
+    alignItems: 'center',
+    gap: 2,
   },
   streakNumber: {
-    fontSize: 32,
-    fontWeight: "bold",
+    fontSize: 24,
+    fontWeight: 'bold',
+    lineHeight: 28,
   },
   streakLabel: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 10,
   },
   progressBar: {
-    height: 8,
-    backgroundColor: "#e0e0e0",
-    borderRadius: 4,
-    overflow: "hidden",
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
   },
   progressFill: {
-    height: "100%",
-    borderRadius: 4,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 40,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#999",
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: "#999",
-    textAlign: "center",
+    height: '100%',
+    borderRadius: 2,
   },
 });
-

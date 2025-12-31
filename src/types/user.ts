@@ -3,5 +3,5 @@ export interface AppUser {
   name: string;
   photoUrl?: string;
   createdAt: number;
+  freezeTokens?: number; // Streak freeze tokens available
 }
-

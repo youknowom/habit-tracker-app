@@ -1,107 +1,275 @@
-import React, { useEffect } from "react";
+import { SwipeableHabitCard } from "@/src/components/SwipeableHabitCard";
+import { SyncStatusIndicator } from "@/src/components/SyncStatusIndicator";
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-  ActivityIndicator,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useHabitStore } from "@/src/store/habitStore";
+  Badge,
+  EmptyState,
+  LoadingSpinner,
+  ProgressRing,
+} from "@/src/components/ui";
+import { useTheme } from "@/src/context/ThemeContext";
+import { useHabits } from "@/src/hooks/useHabits";
 import { Habit } from "@/src/types/habit";
+import { HomeScreenNavigationProp } from "@/src/types/navigation";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { MotiView } from "moti";
+import React, { useEffect, useRef } from "react";
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import ConfettiCannon from "react-native-confetti-cannon";
 
 interface HomeScreenProps {
-  navigation: any;
+  navigation: HomeScreenNavigationProp;
 }
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
+  const { theme } = useTheme();
   const {
     habits,
-    completions,
+    todayCompletions,
+    completionRate,
+    isAllCompleted,
     loading,
     fetchHabits,
     fetchCompletions,
     toggleCompletion,
-    getTodayCompletions,
-    getCompletionRate,
-  } = useHabitStore();
+    isHabitCompleted,
+    deleteHabit,
+  } = useHabits();
+
+  const confettiRef = useRef<any>(null);
+  const prevCompletionRef = useRef(isAllCompleted);
 
   useEffect(() => {
     fetchHabits();
     fetchCompletions();
   }, []);
 
-  const todayCompletions = getTodayCompletions();
-  const completionRate = getCompletionRate();
-  const completedHabitIds = new Set(todayCompletions.map((c) => c.habitId));
+  useEffect(() => {
+    // Trigger confetti when all habits are completed
+    if (isAllCompleted && !prevCompletionRef.current && habits.length > 0) {
+      confettiRef.current?.start();
+    }
+    prevCompletionRef.current = isAllCompleted;
+  }, [isAllCompleted, habits.length]);
 
   const handleToggle = async (habitId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await toggleCompletion(habitId);
     await fetchCompletions();
   };
 
-  const renderHabit = ({ item }: { item: Habit }) => {
+  const completedHabitIds = new Set(todayCompletions.map((c) => c.habitId));
+
+  const handleEdit = (habitId: string) => {
+    navigation.navigate("EditHabit", { habitId });
+  };
+
+  const handleDelete = async (habitId: string) => {
+    // Show confirmation alert
+    if (confirm(`Are you sure you want to delete this habit?`)) {
+      await deleteHabit(habitId);
+      await fetchHabits();
+    }
+  };
+
+  const renderHabit = ({ item, index }: { item: Habit; index: number }) => {
     const isCompleted = completedHabitIds.has(item.id);
 
     return (
-      <TouchableOpacity
-        style={[styles.habitCard, isCompleted && styles.habitCardCompleted]}
+      <SwipeableHabitCard
+        habit={item}
+        isCompleted={isCompleted}
+        index={index}
         onPress={() => navigation.navigate("HabitDetail", { habitId: item.id })}
+        onEdit={() => handleEdit(item.id)}
+        onDelete={() => handleDelete(item.id)}
       >
-        <View style={styles.habitHeader}>
-          <Text style={styles.habitIcon}>{item.icon}</Text>
-          <View style={styles.habitInfo}>
-            <Text style={styles.habitName}>{item.name}</Text>
-            <Text style={styles.habitStreak}>🔥 {item.streak} day streak</Text>
+        <View style={styles.habitContent}>
+          <View style={styles.habitLeft}>
+            <View
+              style={[
+                styles.iconContainer,
+                { backgroundColor: theme.colors.primaryAlpha },
+              ]}
+            >
+              <Text style={styles.habitIcon}>{item.icon}</Text>
+            </View>
+            <View style={styles.habitInfo}>
+              <Text style={[styles.habitName, { color: theme.colors.text }]}>
+                {item.name}
+              </Text>
+              <View style={styles.habitMeta}>
+                {item.streak > 0 && (
+                  <Badge
+                    label={`🔥 ${item.streak}`}
+                    variant="warning"
+                    size="small"
+                  />
+                )}
+              </View>
+            </View>
           </View>
-          <TouchableOpacity
-            style={[
-              styles.checkbox,
-              isCompleted && styles.checkboxCompleted,
-            ]}
+          <Pressable
             onPress={() => handleToggle(item.id)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            {isCompleted && <Ionicons name="checkmark" size={20} color="#fff" />}
-          </TouchableOpacity>
+            <MotiView
+              animate={{ scale: isCompleted ? [1, 1.2, 1] : 1 }}
+              transition={{ type: "timing", duration: 300 }}
+            >
+              <View
+                style={[
+                  styles.checkbox,
+                  {
+                    borderColor: isCompleted
+                      ? theme.colors.success
+                      : theme.colors.border,
+                    backgroundColor: isCompleted
+                      ? theme.colors.success
+                      : "transparent",
+                  },
+                ]}
+              >
+                {isCompleted && (
+                  <Ionicons
+                    name="checkmark"
+                    size={20}
+                    color={theme.colors.textInverse}
+                  />
+                )}
+              </View>
+            </MotiView>
+          </Pressable>
         </View>
-      </TouchableOpacity>
+      </SwipeableHabitCard>
     );
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Today's Habits</Text>
-        <View style={styles.statsContainer}>
-          <Text style={styles.statsText}>
-            {todayCompletions.length} / {habits.length} completed
-          </Text>
-          <Text style={styles.percentageText}>{completionRate}%</Text>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <ConfettiCannon
+        count={200}
+        origin={{ x: -10, y: 0 }}
+        autoStart={false}
+        ref={confettiRef}
+        fadeOut
+      />
+
+      {/* Header Section */}
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+        <View style={styles.headerTop}>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[styles.greeting, { color: theme.colors.textSecondary }]}
+            >
+              Today&apos;s Progress
+            </Text>
+            <Text style={[styles.title, { color: theme.colors.text }]}>
+              {isAllCompleted && habits.length > 0
+                ? "🎉 All Done!"
+                : `${todayCompletions.length}/${habits.length} Completed`}
+            </Text>
+            <View style={styles.syncIndicatorWrapper}>
+              <SyncStatusIndicator />
+            </View>
+          </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("Settings")}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={24}
+              color={theme.colors.text}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {habits.length > 0 && (
+          <View style={styles.progressSection}>
+            <ProgressRing
+              progress={completionRate}
+              size={100}
+              strokeWidth={8}
+            />
+            <View style={styles.statsText}>
+              <Text
+                style={[
+                  styles.statsLabel,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
+                Keep it up!
+              </Text>
+              <Text style={[styles.statsValue, { color: theme.colors.text }]}>
+                {isAllCompleted
+                  ? "Perfect day! 🌟"
+                  : `${habits.length - todayCompletions.length} left`}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={[
+              styles.quickActionButton,
+              { backgroundColor: theme.colors.surface },
+            ]}
+            onPress={() => navigation.navigate("TemplateLibrary")}
+          >
+            <Ionicons name="apps" size={20} color={theme.colors.primary} />
+            <Text
+              style={[styles.quickActionText, { color: theme.colors.text }]}
+            >
+              Templates
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.quickActionButton,
+              { backgroundColor: theme.colors.surface },
+            ]}
+            onPress={() => navigation.navigate("MotivationalQuotes")}
+          >
+            <Ionicons name="bulb" size={20} color={theme.colors.secondary} />
+            <Text
+              style={[styles.quickActionText, { color: theme.colors.text }]}
+            >
+              Inspiration
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
+      {/* Content */}
       {loading && habits.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-        </View>
+        <LoadingSpinner text="Loading your habits..." />
       ) : habits.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="checkmark-circle-outline" size={64} color="#ccc" />
-          <Text style={styles.emptyText}>No habits yet</Text>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => navigation.navigate("AddHabit")}
-          >
-            <Text style={styles.addButtonText}>Add Your First Habit</Text>
-          </TouchableOpacity>
-        </View>
+        <EmptyState
+          icon="rocket-outline"
+          title="Start Building Habits"
+          description="Create your first habit and start tracking your progress towards a better you."
+          actionLabel="Create Habit"
+          onAction={() => navigation.navigate("AddHabit")}
+        />
       ) : (
         <FlatList
           data={habits}
-          renderItem={renderHabit}
           keyExtractor={(item) => item.id}
+          renderItem={renderHabit}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl
@@ -110,132 +278,136 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                 fetchHabits();
                 fetchCompletions();
               }}
+              tintColor={theme.colors.primary}
+              colors={[theme.colors.primary]}
             />
           }
         />
       )}
 
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate("AddHabit")}
+      {/* FAB */}
+      <MotiView
+        from={{ scale: 0, rotate: "-180deg" }}
+        animate={{ scale: 1, rotate: "0deg" }}
+        transition={{ type: "spring", damping: 15, stiffness: 150, delay: 300 }}
       >
-        <Ionicons name="add" size={32} color="#fff" />
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+          onPress={() => navigation.navigate("AddHabit")}
+        >
+          <Ionicons name="add" size={32} color={theme.colors.textInverse} />
+        </TouchableOpacity>
+      </MotiView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
   header: {
-    backgroundColor: "#fff",
-    padding: 20,
-    paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 12,
-    color: "#000",
-  },
-  statsContainer: {
+  headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  greeting: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "600",
+  },
+  syncIndicatorWrapper: {
+    marginTop: 8,
+  },
+  progressSection: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 24,
   },
   statsText: {
-    fontSize: 16,
-    color: "#666",
+    flex: 1,
   },
-  percentageText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#007AFF",
+  statsLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  statsValue: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  quickActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 16,
+  },
+  quickActionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   list: {
     padding: 16,
+    paddingBottom: 100,
   },
   habitCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
     marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  habitCardCompleted: {
-    opacity: 0.7,
-    backgroundColor: "#f0f0f0",
-  },
-  habitHeader: {
+  habitContent: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+  },
+  habitLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   habitIcon: {
-    fontSize: 32,
-    marginRight: 12,
+    fontSize: 24,
   },
   habitInfo: {
     flex: 1,
+    gap: 4,
   },
   habitName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
-    marginBottom: 4,
-    color: "#000",
   },
-  habitStreak: {
-    fontSize: 14,
-    color: "#666",
+  habitMeta: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   checkbox: {
     width: 32,
     height: 32,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: "#ddd",
     justifyContent: "center",
     alignItems: "center",
-  },
-  checkboxCompleted: {
-    backgroundColor: "#4CAF50",
-    borderColor: "#4CAF50",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 40,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: "#999",
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  addButton: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
   },
   fab: {
     position: "absolute",
@@ -244,14 +416,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 8,
   },
 });
-

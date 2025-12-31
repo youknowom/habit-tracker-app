@@ -1,13 +1,16 @@
-import React from "react";
+import { useTheme } from "@/src/context/ThemeContext";
+import AddHabitScreen from "@/src/screens/AddHabitScreen";
+import AnalyticsScreen from "@/src/screens/AnalyticsScreen";
+import HabitDetailScreen from "@/src/screens/HabitDetailScreen";
+import HomeScreen from "@/src/screens/HomeScreen";
+import MotivationalQuotesScreen from "@/src/screens/MotivationalQuotesScreen";
+import SettingsScreen from "@/src/screens/SettingsScreen";
+import StreakScreen from "@/src/screens/StreakScreen";
+import TemplateLibraryScreen from "@/src/screens/TemplateLibraryScreen";
+import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
-import { Ionicons } from "@expo/vector-icons";
-import HomeScreen from "@/src/screens/HomeScreen";
-import AddHabitScreen from "@/src/screens/AddHabitScreen";
-import HabitDetailScreen from "@/src/screens/HabitDetailScreen";
-import AnalyticsScreen from "@/src/screens/AnalyticsScreen";
-import StreakScreen from "@/src/screens/StreakScreen";
-import SettingsScreen from "@/src/screens/SettingsScreen";
+import React from "react";
 
 export type MainTabParamList = {
   Home: undefined;
@@ -20,12 +23,16 @@ export type RootStackParamList = {
   MainTabs: undefined;
   AddHabit: undefined;
   HabitDetail: { habitId: string };
+  TemplateLibrary: undefined;
+  MotivationalQuotes: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createStackNavigator<RootStackParamList>();
 
 function MainTabs() {
+  const { theme } = useTheme();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -46,9 +53,17 @@ function MainTabs() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: "#007AFF",
-        tabBarInactiveTintColor: "gray",
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textSecondary,
         headerShown: true,
+        tabBarStyle: {
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.border,
+        },
+        headerStyle: {
+          backgroundColor: theme.colors.surface,
+        },
+        headerTintColor: theme.colors.text,
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
@@ -60,8 +75,20 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
+  const { theme } = useTheme();
+
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: theme.colors.surface,
+        },
+        headerTintColor: theme.colors.text,
+        cardStyle: {
+          backgroundColor: theme.colors.background,
+        },
+      }}
+    >
       <Stack.Screen
         name="MainTabs"
         component={MainTabs}
@@ -77,7 +104,16 @@ export default function AppNavigator() {
         component={HabitDetailScreen}
         options={{ title: "Habit Details" }}
       />
+      <Stack.Screen
+        name="TemplateLibrary"
+        component={TemplateLibraryScreen}
+        options={{ title: "Habit Templates", presentation: "modal" }}
+      />
+      <Stack.Screen
+        name="MotivationalQuotes"
+        component={MotivationalQuotesScreen}
+        options={{ title: "Daily Inspiration", presentation: "modal" }}
+      />
     </Stack.Navigator>
   );
 }
-

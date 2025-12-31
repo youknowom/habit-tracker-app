@@ -1,46 +1,75 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import { Button, Input } from "@/src/components/ui";
+import { useTheme } from "@/src/context/ThemeContext";
 import { useAuthStore } from "@/src/store/authStore";
 import { isValidEmail, isValidPassword } from "@/src/utils/validators";
+import { Ionicons } from "@expo/vector-icons";
+import { MotiView } from "moti";
+import React, { useState } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 interface SignupScreenProps {
   navigation: any;
 }
 
 export default function SignupScreen({ navigation }: SignupScreenProps) {
+  const { theme } = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
   const signUp = useAuthStore((state) => state.signUp);
 
   const handleSignup = async () => {
+    // Clear previous errors
+    setErrors({ email: "", password: "", confirmPassword: "" });
+
     if (!email.trim() || !password.trim() || !confirmPassword.trim()) {
-      Alert.alert("Error", "Please fill in all fields");
+      if (!email.trim())
+        setErrors((prev) => ({ ...prev, email: "Email is required" }));
+      if (!password.trim())
+        setErrors((prev) => ({ ...prev, password: "Password is required" }));
+      if (!confirmPassword.trim())
+        setErrors((prev) => ({
+          ...prev,
+          confirmPassword: "Please confirm password",
+        }));
       return;
     }
 
     if (!isValidEmail(email)) {
-      Alert.alert("Error", "Please enter a valid email address");
+      setErrors((prev) => ({
+        ...prev,
+        email: "Please enter a valid email address",
+      }));
       return;
     }
 
     if (!isValidPassword(password)) {
-      Alert.alert("Error", "Password must be at least 6 characters");
+      setErrors((prev) => ({
+        ...prev,
+        password: "Password must be at least 6 characters",
+      }));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
+      setErrors((prev) => ({
+        ...prev,
+        confirmPassword: "Passwords do not match",
+      }));
       return;
     }
 
@@ -49,126 +78,172 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
       await signUp(email, password);
       navigation.navigate("ProfileSetup");
     } catch (error: any) {
-      Alert.alert("Signup Failed", error.message || "Could not create account");
+      setErrors((prev) => ({
+        ...prev,
+        email: error.message || "Could not create account",
+      }));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <View style={styles.content}>
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Sign up to get started</Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Hero Icon */}
+          <MotiView
+            from={{ scale: 0, rotate: "-180deg" }}
+            animate={{ scale: 1, rotate: "0deg" }}
+            transition={{ type: "spring", damping: 12, stiffness: 100 }}
+            style={styles.iconContainer}
+          >
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: theme.colors.primaryLight },
+              ]}
+            >
+              <Ionicons
+                name="person-add"
+                size={40}
+                color={theme.colors.primary}
+              />
+            </View>
+          </MotiView>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm Password"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          autoCapitalize="none"
-        />
-
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleSignup}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? "Creating account..." : "Sign Up"}
+          {/* Title */}
+          <Text style={[styles.title, { color: theme.colors.text }]}>
+            Create Account
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.linkButton}
-          onPress={() => navigation.navigate("Login")}
-        >
-          <Text style={styles.linkText}>
-            Already have an account? Login
+          <Text
+            style={[styles.subtitle, { color: theme.colors.textSecondary }]}
+          >
+            Sign up to start building better habits
           </Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+
+          {/* Form */}
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: "timing", duration: 400, delay: 200 }}
+          >
+            <Input
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              error={errors.email}
+            />
+
+            <Input
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              error={errors.password}
+            />
+
+            <Input
+              label="Confirm Password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              error={errors.confirmPassword}
+            />
+
+            <Button
+              title={loading ? "Creating account..." : "Sign Up"}
+              onPress={handleSignup}
+              loading={loading}
+              variant="primary"
+              fullWidth
+              style={styles.signupButton}
+              icon={
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color={theme.colors.textInverse}
+                />
+              }
+            />
+
+            <View style={styles.footer}>
+              <Text
+                style={[
+                  styles.footerText,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
+                Already have an account?{" "}
+              </Text>
+              <Text
+                style={[styles.linkText, { color: theme.colors.primary }]}
+                onPress={() => navigation.navigate("Login")}
+              >
+                Login
+              </Text>
+            </View>
+          </MotiView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
-  content: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
-    padding: 20,
+    padding: 24,
+  },
+  iconContainer: {
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
   },
   title: {
     fontSize: 32,
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 8,
-    color: "#000",
   },
   subtitle: {
     fontSize: 16,
     textAlign: "center",
-    marginBottom: 32,
-    color: "#666",
+    marginBottom: 40,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-    fontSize: 16,
-    backgroundColor: "#f9f9f9",
-  },
-  button: {
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-    padding: 16,
-    alignItems: "center",
+  signupButton: {
     marginTop: 8,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  linkButton: {
+  footer: {
+    flexDirection: "row",
+    justifyContent: "center",
     marginTop: 24,
-    alignItems: "center",
   },
-  linkText: {
-    color: "#007AFF",
+  footerText: {
     fontSize: 14,
   },
+  linkText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });
-

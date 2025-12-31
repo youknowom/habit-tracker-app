@@ -1,5 +1,6 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getReactNativePersistence, initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -9,12 +10,15 @@ const firebaseConfig = {
   storageBucket: "habit-tracker-1df89.firebasestorage.app",
   messagingSenderId: "821971089270",
   appId: "1:821971089270:web:9d52f3d231753755eeec57",
-  measurementId: "G-1V9CW6D5SD"
+  measurementId: "G-1V9CW6D5SD",
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+// Initialize Auth with AsyncStorage persistence
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});
 
+export const db = getFirestore(app);

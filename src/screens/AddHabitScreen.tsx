@@ -1,26 +1,52 @@
-import React, { useState } from "react";
+import { Button, Card, Chip, Input } from "@/src/components/ui";
+import { useTheme } from "@/src/context/ThemeContext";
+import { scheduleHabitNotification } from "@/src/services/notifications";
+import { useHabitStore } from "@/src/store/habitStore";
+import { AddHabitScreenProps } from "@/src/types/navigation";
+import { isValidHabitName } from "@/src/utils/validators";
+import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { MotiView } from "moti";
+import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
   Alert,
   Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { useHabitStore } from "@/src/store/habitStore";
-import { isValidHabitName, isValidTime } from "@/src/utils/validators";
-import { scheduleHabitNotification } from "@/src/services/notifications";
 
-const EMOJI_OPTIONS = ["🏃", "📚", "💧", "🧘", "🍎", "💤", "🎯", "📝", "🎨", "🏋️"];
+const EMOJI_OPTIONS = [
+  "🏃",
+  "📚",
+  "💧",
+  "🧘",
+  "🍎",
+  "💤",
+  "🎯",
+  "📝",
+  "🎨",
+  "🏋️",
+  "🚴",
+  "🎵",
+  "💰",
+  "🌱",
+  "📱",
+  "✍️",
+];
 
-interface AddHabitScreenProps {
-  navigation: any;
-}
+interface AddHabitScreenComponentProps extends AddHabitScreenProps {}
 
-export default function AddHabitScreen({ navigation }: AddHabitScreenProps) {
+export default function AddHabitScreen({
+  navigation,
+  route,
+}: AddHabitScreenComponentProps) {
+  const { theme } = useTheme();
+  const template = route.params?.template;
+
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("🎯");
   const [goalType, setGoalType] = useState<"check" | "reps" | "time">("check");
@@ -29,9 +55,32 @@ export default function AddHabitScreen({ navigation }: AddHabitScreenProps) {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [repeatDays, setRepeatDays] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState("");
   const addHabit = useHabitStore((state) => state.addHabit);
 
   const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  // Pre-fill form from template if provided
+  useEffect(() => {
+    if (template) {
+      setName(template.name);
+      setIcon(template.icon);
+      setGoalType(template.goalType);
+      if (template.goalValue) {
+        setGoalValue(template.goalValue.toString());
+      }
+      if (template.repeatDays && template.repeatDays.length > 0) {
+        setRepeatDays(template.repeatDays);
+      }
+      if (template.suggestedTime) {
+        // Parse suggested time (HH:MM format)
+        const [hours, minutes] = template.suggestedTime.split(":").map(Number);
+        const time = new Date();
+        time.setHours(hours, minutes, 0, 0);
+        setReminderTime(time);
+      }
+    }
+  }, [template]);
 
   const toggleDay = (day: string) => {
     setRepeatDays((prev) =>
@@ -40,8 +89,10 @@ export default function AddHabitScreen({ navigation }: AddHabitScreenProps) {
   };
 
   const handleSave = async () => {
+    setNameError("");
+
     if (!isValidHabitName(name)) {
-      Alert.alert("Error", "Please enter a valid habit name");
+      setNameError("Please enter a valid habit name (at least 3 characters)");
       return;
     }
 
@@ -89,256 +140,270 @@ export default function AddHabitScreen({ navigation }: AddHabitScreenProps) {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.label}>Habit Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g., Morning Run"
-          value={name}
-          onChangeText={setName}
-        />
-
-        <Text style={styles.label}>Icon</Text>
-        <View style={styles.emojiContainer}>
-          {EMOJI_OPTIONS.map((emoji) => (
-            <TouchableOpacity
-              key={emoji}
-              style={[styles.emojiButton, icon === emoji && styles.emojiButtonSelected]}
-              onPress={() => setIcon(emoji)}
-            >
-              <Text style={styles.emoji}>{emoji}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={styles.label}>Goal Type</Text>
-        <View style={styles.goalTypeContainer}>
-          <TouchableOpacity
-            style={[styles.goalTypeButton, goalType === "check" && styles.goalTypeButtonSelected]}
-            onPress={() => setGoalType("check")}
-          >
-            <Text style={[styles.goalTypeText, goalType === "check" && styles.goalTypeTextSelected]}>
-              Check
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.goalTypeButton, goalType === "reps" && styles.goalTypeButtonSelected]}
-            onPress={() => setGoalType("reps")}
-          >
-            <Text style={[styles.goalTypeText, goalType === "reps" && styles.goalTypeTextSelected]}>
-              Reps
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.goalTypeButton, goalType === "time" && styles.goalTypeButtonSelected]}
-            onPress={() => setGoalType("time")}
-          >
-            <Text style={[styles.goalTypeText, goalType === "time" && styles.goalTypeTextSelected]}>
-              Time
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {goalType !== "check" && (
-          <>
-            <Text style={styles.label}>
-              Goal Value ({goalType === "reps" ? "reps" : "minutes"})
-            </Text>
-            <TextInput
-              style={styles.input}
-              placeholder={goalType === "reps" ? "e.g., 10" : "e.g., 30"}
-              value={goalValue}
-              onChangeText={setGoalValue}
-              keyboardType="numeric"
-            />
-          </>
-        )}
-
-        <Text style={styles.label}>Reminder Time (Optional)</Text>
-        <TouchableOpacity
-          style={styles.input}
-          onPress={() => setShowTimePicker(true)}
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 300 }}
         >
-          <Text style={reminderTime ? styles.timeText : styles.placeholderText}>
-            {reminderTime
-              ? reminderTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-              : "Select time"}
-          </Text>
-        </TouchableOpacity>
+          {/* Habit Name */}
+          <Card style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Habit Name
+            </Text>
+            <Input
+              placeholder="e.g., Morning Run"
+              value={name}
+              onChangeText={(text) => {
+                setName(text);
+                setNameError("");
+              }}
+              error={nameError}
+              containerStyle={{ marginTop: theme.spacing.sm }}
+            />
+          </Card>
 
-        {showTimePicker && (
-          <DateTimePicker
-            value={reminderTime || new Date()}
-            mode="time"
-            is24Hour={false}
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            onChange={(event, selectedTime) => {
-              setShowTimePicker(Platform.OS === "ios");
-              if (selectedTime) {
-                setReminderTime(selectedTime);
-              }
-            }}
-          />
-        )}
+          {/* Icon Selector */}
+          <Card style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Choose an Icon
+            </Text>
+            <View style={styles.emojiGrid}>
+              {EMOJI_OPTIONS.map((emoji) => (
+                <TouchableOpacity
+                  key={emoji}
+                  style={[
+                    styles.emojiButton,
+                    {
+                      borderColor:
+                        icon === emoji
+                          ? theme.colors.primary
+                          : theme.colors.border,
+                      backgroundColor:
+                        icon === emoji
+                          ? theme.colors.primaryAlpha
+                          : "transparent",
+                    },
+                  ]}
+                  onPress={() => setIcon(emoji)}
+                >
+                  <Text style={styles.emoji}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Card>
 
-        <Text style={styles.label}>Repeat Days</Text>
-        <View style={styles.daysContainer}>
-          {DAYS.map((day) => (
+          {/* Goal Type */}
+          <Card style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Goal Type
+            </Text>
+            <View style={styles.goalTypeContainer}>
+              <Chip
+                label="Check"
+                selected={goalType === "check"}
+                onPress={() => setGoalType("check")}
+                variant="primary"
+              />
+              <Chip
+                label="Reps"
+                selected={goalType === "reps"}
+                onPress={() => setGoalType("reps")}
+                variant="primary"
+              />
+              <Chip
+                label="Time"
+                selected={goalType === "time"}
+                onPress={() => setGoalType("time")}
+                variant="primary"
+              />
+            </View>
+
+            {goalType !== "check" && (
+              <Input
+                placeholder={
+                  goalType === "reps" ? "e.g., 10" : "e.g., 30 (minutes)"
+                }
+                value={goalValue}
+                onChangeText={setGoalValue}
+                keyboardType="numeric"
+                containerStyle={{ marginTop: theme.spacing.md }}
+              />
+            )}
+          </Card>
+
+          {/* Reminder Time */}
+          <Card style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Reminder (Optional)
+            </Text>
             <TouchableOpacity
-              key={day}
               style={[
-                styles.dayButton,
-                repeatDays.includes(day) && styles.dayButtonSelected,
+                styles.timeSelector,
+                {
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.surface,
+                },
               ]}
-              onPress={() => toggleDay(day)}
+              onPress={() => setShowTimePicker(true)}
             >
+              <Ionicons
+                name="time-outline"
+                size={20}
+                color={theme.colors.primary}
+              />
               <Text
                 style={[
-                  styles.dayText,
-                  repeatDays.includes(day) && styles.dayTextSelected,
+                  styles.timeText,
+                  {
+                    color: reminderTime
+                      ? theme.colors.text
+                      : theme.colors.textSecondary,
+                  },
                 ]}
               >
-                {day}
+                {reminderTime
+                  ? reminderTime.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "Select time"}
               </Text>
             </TouchableOpacity>
-          ))}
-        </View>
 
-        <TouchableOpacity
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          <Text style={styles.saveButtonText}>
-            {saving ? "Saving..." : "Save Habit"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+            {showTimePicker && (
+              <DateTimePicker
+                value={reminderTime || new Date()}
+                mode="time"
+                is24Hour={false}
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(event, selectedTime) => {
+                  setShowTimePicker(Platform.OS === "ios");
+                  if (selectedTime) {
+                    setReminderTime(selectedTime);
+                  }
+                }}
+              />
+            )}
+          </Card>
+
+          {/* Repeat Days */}
+          <Card style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Repeat Days
+            </Text>
+            <Text
+              style={[
+                styles.sectionDescription,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              {repeatDays.length === 0
+                ? "Every day"
+                : `${repeatDays.length} days selected`}
+            </Text>
+            <View style={styles.daysContainer}>
+              {DAYS.map((day) => (
+                <Chip
+                  key={day}
+                  label={day}
+                  selected={repeatDays.includes(day)}
+                  onPress={() => toggleDay(day)}
+                  variant="primary"
+                />
+              ))}
+            </View>
+          </Card>
+
+          {/* Save Button */}
+          <Button
+            title={saving ? "Creating Habit..." : "Create Habit"}
+            onPress={handleSave}
+            loading={saving}
+            variant="primary"
+            fullWidth
+            style={styles.saveButton}
+            icon={
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={theme.colors.textInverse}
+              />
+            }
+          />
+        </MotiView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
-  content: {
-    padding: 20,
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 32,
   },
-  label: {
+  section: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 8,
-    marginTop: 16,
-    color: "#000",
+    marginBottom: 4,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    backgroundColor: "#f9f9f9",
-  },
-  emojiContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 8,
-  },
-  emojiButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: "#ddd",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
+  sectionDescription: {
+    fontSize: 12,
     marginBottom: 12,
   },
-  emojiButtonSelected: {
-    borderColor: "#007AFF",
-    backgroundColor: "#e3f2fd",
+  emojiGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 12,
+  },
+  emojiButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
   },
   emoji: {
-    fontSize: 24,
+    fontSize: 28,
   },
   goalTypeContainer: {
     flexDirection: "row",
-    marginTop: 8,
+    gap: 8,
+    marginTop: 12,
   },
-  goalTypeButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#ddd",
-    marginRight: 8,
+  timeSelector: {
+    flexDirection: "row",
     alignItems: "center",
-  },
-  goalTypeButtonSelected: {
-    borderColor: "#007AFF",
-    backgroundColor: "#e3f2fd",
-  },
-  goalTypeText: {
-    fontSize: 16,
-    color: "#666",
-  },
-  goalTypeTextSelected: {
-    color: "#007AFF",
-    fontWeight: "600",
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginTop: 12,
   },
   timeText: {
     fontSize: 16,
-    color: "#000",
-  },
-  placeholderText: {
-    fontSize: 16,
-    color: "#999",
   },
   daysContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginTop: 8,
-  },
-  dayButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  dayButtonSelected: {
-    borderColor: "#007AFF",
-    backgroundColor: "#007AFF",
-  },
-  dayText: {
-    fontSize: 14,
-    color: "#666",
-  },
-  dayTextSelected: {
-    color: "#fff",
-    fontWeight: "600",
+    gap: 8,
+    marginTop: 12,
   },
   saveButton: {
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-    padding: 16,
-    alignItems: "center",
-    marginTop: 32,
-    marginBottom: 40,
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+    marginTop: 8,
   },
 });
-

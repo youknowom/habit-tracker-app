@@ -1,158 +1,306 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import { Input } from "@/src/components/ui";
+import { auth } from "@/src/services/firebase";
 import { useAuthStore } from "@/src/store/authStore";
 import { isValidEmail, isValidPassword } from "@/src/utils/validators";
+import { Ionicons } from "@expo/vector-icons";
+import { MotiView } from "moti";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface LoginScreenProps {
   navigation: any;
 }
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
+  const { user } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [errors, setErrors] = useState({ email: "", password: "" });
   const signIn = useAuthStore((state) => state.signIn);
 
+  // Auto-redirect if already authenticated
+  useEffect(() => {
+    if (user) {
+      const checkProfile = async () => {
+        const currentUser = auth.currentUser;
+        if (currentUser?.displayName) {
+          navigation.replace("MainTabs");
+        } else {
+          navigation.replace("ProfileSetup");
+        }
+      };
+      checkProfile();
+    }
+  }, [user, navigation]);
+
   const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert("Error", "Please fill in all fields");
-      return;
+    setErrors({ email: "", password: "" });
+    setErrorMessage("");
+
+    const newErrors = { email: "", password: "" };
+
+    if (!email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!isValidEmail(email)) {
+      newErrors.email = "Please enter a valid email address";
     }
 
-    if (!isValidEmail(email)) {
-      Alert.alert("Error", "Please enter a valid email address");
-      return;
+    if (!password.trim()) {
+      newErrors.password = "Password is required";
+    } else if (!isValidPassword(password)) {
+      newErrors.password = "Password must be at least 6 characters";
     }
 
-    if (!isValidPassword(password)) {
-      Alert.alert("Error", "Password must be at least 6 characters");
+    if (newErrors.email || newErrors.password) {
+      setErrors(newErrors);
       return;
     }
 
     setLoading(true);
     try {
       await signIn(email, password);
+      // Check if login was successful by checking current user
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        if (currentUser.displayName) {
+          navigation.replace("MainTabs");
+        } else {
+          navigation.replace("ProfileSetup");
+        }
+      } else {
+        setErrorMessage("Login failed. Please check your credentials.");
+      }
     } catch (error: any) {
-      Alert.alert("Login Failed", error.message || "Invalid email or password");
+      setErrorMessage(error.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
-    >
-      <View style={styles.content}>
-        <Text style={styles.title}>Habit Tracker</Text>
-        <Text style={styles.subtitle}>Login to continue</Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-        />
-
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <Text style={styles.buttonText}>
-            {loading ? "Logging in..." : "Login"}
-          </Text>
-        </TouchableOpacity>
+          {/* Header Section */}
+          <MotiView
+            from={{ opacity: 0, translateY: -20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: "timing", duration: 600 }}
+            style={styles.headerSection}
+          >
+            <MotiView
+              from={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", delay: 200, damping: 12 }}
+              style={styles.iconContainer}
+            >
+              <Ionicons name="checkmark-circle" size={64} color="#4F46E5" />
+            </MotiView>
 
-        <TouchableOpacity
-          style={styles.linkButton}
-          onPress={() => navigation.navigate("Signup")}
-        >
-          <Text style={styles.linkText}>
-            Don't have an account? Sign up
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+            <Text style={styles.welcomeText}>Welcome Back</Text>
+            <Text style={styles.subtitleText}>
+              Sign in to continue building your habits
+            </Text>
+          </MotiView>
+
+          {/* Error Message */}
+          {errorMessage ? (
+            <MotiView
+              from={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring" }}
+              style={styles.errorContainer}
+            >
+              <Ionicons name="alert-circle" size={20} color="#EF4444" />
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </MotiView>
+          ) : null}
+
+          {/* Login Form */}
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: "timing", duration: 600, delay: 300 }}
+            style={styles.formSection}
+          >
+            <Input
+              placeholder="Email address"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                setErrors({ ...errors, email: "" });
+                setErrorMessage("");
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!loading}
+              error={errors.email}
+              style={styles.input}
+            />
+
+            <Input
+              placeholder="Password"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                setErrors({ ...errors, password: "" });
+                setErrorMessage("");
+              }}
+              isPassword
+              autoCapitalize="none"
+              editable={!loading}
+              error={errors.password}
+              style={styles.input}
+            />
+
+            <Pressable
+              onPress={handleLogin}
+              disabled={loading}
+              style={({ pressed }) => [
+                styles.signInButton,
+                loading && styles.buttonDisabled,
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.signInButtonText}>Sign In</Text>
+              )}
+            </Pressable>
+          </MotiView>
+
+          {/* Sign Up Link */}
+          <MotiView
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ type: "timing", duration: 600, delay: 500 }}
+            style={styles.signupContainer}
+          >
+            <Text style={styles.signupText}>
+              Don&apos;t have an account?{" "}
+              <Pressable onPress={() => navigation.navigate("Signup")}>
+                <Text style={styles.signupLink}>Sign Up</Text>
+              </Pressable>
+            </Text>
+          </MotiView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#F9FAFB",
   },
-  content: {
+  keyboardView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
     justifyContent: "center",
-    padding: 20,
   },
-  title: {
+  headerSection: {
+    alignItems: "center",
+    marginBottom: 40,
+  },
+  iconContainer: {
+    marginBottom: 24,
+  },
+  welcomeText: {
     fontSize: 32,
-    fontWeight: "bold",
-    textAlign: "center",
+    fontWeight: "700",
+    color: "#111827",
     marginBottom: 8,
-    color: "#000",
+    letterSpacing: -0.5,
   },
-  subtitle: {
+  subtitleText: {
     fontSize: 16,
+    color: "#6B7280",
     textAlign: "center",
-    marginBottom: 32,
-    color: "#666",
+    lineHeight: 24,
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEE2E2",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    gap: 12,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+    color: "#DC2626",
+    fontWeight: "500",
+  },
+  formSection: {
+    marginBottom: 24,
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 16,
     marginBottom: 16,
-    fontSize: 16,
-    backgroundColor: "#f9f9f9",
   },
-  button: {
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-    padding: 16,
+  signInButton: {
+    backgroundColor: "#4F46E5",
+    height: 56,
+    borderRadius: 14,
     alignItems: "center",
+    justifyContent: "center",
     marginTop: 8,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  signInButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
+  buttonPressed: {
+    transform: [{ scale: 0.98 }],
+  },
+  signupContainer: {
+    alignItems: "center",
+    marginTop: 32,
+  },
+  signupText: {
+    fontSize: 15,
+    color: "#6B7280",
+  },
+  signupLink: {
+    color: "#4F46E5",
     fontWeight: "600",
   },
-  linkButton: {
-    marginTop: 24,
-    alignItems: "center",
-  },
-  linkText: {
-    color: "#007AFF",
-    fontSize: 14,
-  },
 });
-

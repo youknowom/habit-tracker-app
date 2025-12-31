@@ -1,6 +1,9 @@
+// eslint-disable-next-line import/no-unresolved
 import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "@env";
 
-export const uploadImageToCloudinary = async (base64: string): Promise<string> => {
+export const uploadImageToCloudinary = async (
+  base64: string
+): Promise<string> => {
   const data = new FormData();
   data.append("file", `data:image/jpg;base64,${base64}`);
   data.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
@@ -16,4 +19,3 @@ export const uploadImageToCloudinary = async (base64: string): Promise<string> =
   const json = await res.json();
   return json.secure_url;
 };
-

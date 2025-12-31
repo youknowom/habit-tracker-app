@@ -1,20 +1,25 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
-import * as ImagePicker from "react-native-image-picker";
-import { useAuthStore } from "@/src/store/authStore";
+import { Card, LoadingSpinner } from "@/src/components/ui";
+import { useTheme } from "@/src/context/ThemeContext";
 import { uploadImageToCloudinary } from "@/src/services/cloudinary";
 import { requestNotificationPermissions } from "@/src/services/notifications";
+import { useAuthStore } from "@/src/store/authStore";
+import { Ionicons } from "@expo/vector-icons";
+import { MotiView } from "moti";
+import React, { useState } from "react";
+import {
+  Alert,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import * as ImagePicker from "react-native-image-picker";
 
 export default function SettingsScreen() {
+  const { theme, themeMode, setThemeMode } = useTheme();
   const { user, userData, signOut, updateUserData } = useAuthStore();
   const [uploading, setUploading] = useState(false);
 
@@ -41,7 +46,7 @@ export default function SettingsScreen() {
             const fetchResponse = await fetch(photoUri);
             const blob = await fetchResponse.blob();
             const reader = new FileReader();
-            
+
             const base64 = await new Promise<string>((resolve, reject) => {
               reader.onloadend = () => {
                 const base64String = (reader.result as string).split(",")[1];
@@ -68,188 +73,357 @@ export default function SettingsScreen() {
     if (result.granted) {
       Alert.alert("Success", "Notifications enabled!");
     } else {
-      Alert.alert("Permission Denied", "Please enable notifications in settings");
+      Alert.alert(
+        "Permission Denied",
+        "Please enable notifications in settings"
+      );
     }
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      "Sign Out",
-      "Are you sure you want to sign out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign Out",
-          style: "destructive",
-          onPress: signOut,
-        },
-      ]
-    );
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: signOut,
+      },
+    ]);
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.profileSection}>
-          <TouchableOpacity onPress={pickImage} disabled={uploading}>
-            {userData?.photoUrl ? (
-              <Image
-                source={{ uri: userData.photoUrl }}
-                style={styles.avatar}
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Profile Section */}
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 300 }}
+        >
+          <Card style={styles.profileCard} elevation="md">
+            <TouchableOpacity onPress={pickImage} disabled={uploading}>
+              <View style={styles.avatarContainer}>
+                {userData?.photoUrl ? (
+                  <Image
+                    source={{ uri: userData.photoUrl }}
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.avatarPlaceholder,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.avatarText,
+                        { color: theme.colors.textInverse },
+                      ]}
+                    >
+                      {userData?.name?.[0]?.toUpperCase() || "U"}
+                    </Text>
+                  </View>
+                )}
+                {uploading && (
+                  <View style={styles.uploadingOverlay}>
+                    <LoadingSpinner size="small" />
+                  </View>
+                )}
+                <View
+                  style={[
+                    styles.editBadge,
+                    { backgroundColor: theme.colors.primary },
+                  ]}
+                >
+                  <Ionicons
+                    name="camera"
+                    size={16}
+                    color={theme.colors.textInverse}
+                  />
+                </View>
+              </View>
+            </TouchableOpacity>
+            <Text style={[styles.name, { color: theme.colors.text }]}>
+              {userData?.name || "User"}
+            </Text>
+            <Text style={[styles.email, { color: theme.colors.textSecondary }]}>
+              {user?.email}
+            </Text>
+          </Card>
+        </MotiView>
+
+        {/* Appearance Section */}
+        <View style={styles.section}>
+          <Text
+            style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}
+          >
+            APPEARANCE
+          </Text>
+
+          <Card elevation="sm">
+            <TouchableOpacity
+              style={styles.settingItem}
+              onPress={() =>
+                setThemeMode(
+                  themeMode === "light"
+                    ? "dark"
+                    : themeMode === "dark"
+                    ? "auto"
+                    : "light"
+                )
+              }
+            >
+              <View style={styles.settingLeft}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: theme.colors.primaryAlpha },
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      themeMode === "light"
+                        ? "sunny"
+                        : themeMode === "dark"
+                        ? "moon"
+                        : "contrast"
+                    }
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                </View>
+                <View>
+                  <Text
+                    style={[styles.settingLabel, { color: theme.colors.text }]}
+                  >
+                    Theme
+                  </Text>
+                  <Text
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    {themeMode === "light"
+                      ? "Light"
+                      : themeMode === "dark"
+                      ? "Dark"
+                      : "Auto"}
+                  </Text>
+                </View>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textTertiary}
               />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>
-                  {userData?.name?.[0]?.toUpperCase() || "U"}
+            </TouchableOpacity>
+          </Card>
+        </View>
+
+        {/* Notifications Section */}
+        <View style={styles.section}>
+          <Text
+            style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}
+          >
+            NOTIFICATIONS
+          </Text>
+
+          <Card elevation="sm">
+            <TouchableOpacity
+              style={styles.settingItem}
+              onPress={handleRequestNotifications}
+            >
+              <View style={styles.settingLeft}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: theme.colors.secondaryAlpha },
+                  ]}
+                >
+                  <Ionicons
+                    name="notifications"
+                    size={20}
+                    color={theme.colors.secondary}
+                  />
+                </View>
+                <Text
+                  style={[styles.settingLabel, { color: theme.colors.text }]}
+                >
+                  Enable Notifications
                 </Text>
               </View>
-            )}
-            {uploading && (
-              <View style={styles.uploadingOverlay}>
-                <ActivityIndicator color="#fff" />
-              </View>
-            )}
-          </TouchableOpacity>
-          <Text style={styles.name}>{userData?.name || "User"}</Text>
-          <Text style={styles.email}>{user?.email}</Text>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textTertiary}
+              />
+            </TouchableOpacity>
+          </Card>
         </View>
 
+        {/* Account Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
-          
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={handleRequestNotifications}
+          <Text
+            style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}
           >
-            <Text style={styles.settingLabel}>Enable Notifications</Text>
-            <Text style={styles.settingValue}>→</Text>
-          </TouchableOpacity>
+            ACCOUNT
+          </Text>
+
+          <Card elevation="sm">
+            <TouchableOpacity
+              style={styles.settingItem}
+              onPress={handleSignOut}
+            >
+              <View style={styles.settingLeft}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: theme.colors.errorAlpha },
+                  ]}
+                >
+                  <Ionicons
+                    name="log-out-outline"
+                    size={20}
+                    color={theme.colors.error}
+                  />
+                </View>
+                <Text
+                  style={[styles.settingLabel, { color: theme.colors.error }]}
+                >
+                  Sign Out
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.colors.textTertiary}
+              />
+            </TouchableOpacity>
+          </Card>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          
-          <TouchableOpacity style={styles.settingItem} onPress={handleSignOut}>
-            <Text style={[styles.settingLabel, styles.dangerText]}>
-              Sign Out
-            </Text>
-            <Text style={styles.settingValue}>→</Text>
-          </TouchableOpacity>
-        </View>
-
+        {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Habit Tracker v1.0.0</Text>
+          <Text
+            style={[styles.footerText, { color: theme.colors.textTertiary }]}
+          >
+            Habit Tracker v1.0.0
+          </Text>
+          <Text
+            style={[styles.footerText, { color: theme.colors.textTertiary }]}
+          >
+            Built with ❤️
+          </Text>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
-  content: {
-    padding: 20,
-  },
-  profileSection: {
+  profileCard: {
     alignItems: "center",
-    paddingVertical: 32,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    marginBottom: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    padding: 24,
+    margin: 16,
+    marginTop: 8,
+  },
+  avatarContainer: {
+    position: "relative",
+    marginBottom: 16,
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    marginBottom: 16,
   },
   avatarPlaceholder: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
   },
   avatarText: {
     fontSize: 40,
-    color: "#fff",
-    fontWeight: "bold",
+    fontWeight: "600",
   },
   uploadingOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    ...StyleSheet.absoluteFillObject,
     borderRadius: 50,
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
+  editBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: "#fff",
+  },
   name: {
     fontSize: 24,
-    fontWeight: "bold",
+    fontWeight: "600",
     marginBottom: 4,
-    color: "#000",
   },
   email: {
     fontSize: 14,
-    color: "#666",
   },
   section: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 24,
+    paddingHorizontal: 16,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "600",
-    padding: 16,
-    paddingBottom: 8,
-    color: "#666",
-    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 8,
   },
   settingItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
+    paddingVertical: 12,
+  },
+  settingLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
   },
   settingLabel: {
     fontSize: 16,
-    color: "#000",
+    fontWeight: "500",
   },
-  settingValue: {
-    fontSize: 18,
-    color: "#999",
-  },
-  dangerText: {
-    color: "#ff3b30",
+  settingDescription: {
+    fontSize: 12,
+    marginTop: 2,
   },
   footer: {
     alignItems: "center",
-    paddingVertical: 24,
+    paddingVertical: 32,
+    gap: 4,
   },
   footerText: {
     fontSize: 12,
-    color: "#999",
   },
 });
-
