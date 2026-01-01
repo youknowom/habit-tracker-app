@@ -1,22 +1,23 @@
-import { ErrorBoundary } from "@/src/components/ErrorBoundary";
-import { ThemeProvider } from "@/src/context/ThemeContext";
-import AppNavigator from "@/src/navigation/AppNavigator";
-import AuthNavigator from "@/src/navigation/AuthNavigator";
-import SplashScreen from "@/src/screens/SplashScreen";
-import { requestNotificationPermissions } from "@/src/services/notifications";
-import { useAuthStore } from "@/src/store/authStore";
 import { NavigationContainer } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
 import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { ErrorBoundary } from "./src/components/ErrorBoundary";
+import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
+import AppNavigator from "./src/navigation/AppNavigator";
+import AuthNavigator from "./src/navigation/AuthNavigator";
+import SplashScreen from "./src/screens/SplashScreen";
+import { requestNotificationPermissions } from "./src/services/notifications";
+import { useAuthStore } from "./src/store/authStore";
 
 function AppContent() {
   const { user, userData, initialized, initialize } = useAuthStore();
+  const { isDark } = useTheme();
 
   useEffect(() => {
     initialize();
-    // Request notification permissions on app start
+    // Request notification permissions on app starts
     requestNotificationPermissions();
   }, []);
 
@@ -29,7 +30,7 @@ function AppContent() {
       <ErrorBoundary>
         {user && userData ? <AppNavigator /> : <AuthNavigator />}
       </ErrorBoundary>
-      <StatusBar style="auto" />
+      <StatusBar style={isDark ? "light" : "dark"} />
     </NavigationContainer>
   );
 }

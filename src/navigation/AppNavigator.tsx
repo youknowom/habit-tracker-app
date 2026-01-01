@@ -1,16 +1,40 @@
 import { useTheme } from "@/src/context/ThemeContext";
-import AddHabitScreen from "@/src/screens/AddHabitScreen";
-import AnalyticsScreen from "@/src/screens/AnalyticsScreen";
-import HabitDetailScreen from "@/src/screens/HabitDetailScreen";
-import HomeScreen from "@/src/screens/HomeScreen";
-import MotivationalQuotesScreen from "@/src/screens/MotivationalQuotesScreen";
-import SettingsScreen from "@/src/screens/SettingsScreen";
-import StreakScreen from "@/src/screens/StreakScreen";
-import TemplateLibraryScreen from "@/src/screens/TemplateLibraryScreen";
 import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
-import React from "react";
+import React, { Suspense, lazy } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+
+// Lazy load modal screens only
+const AddHabitScreen = lazy(() => import("@/src/screens/AddHabitScreen"));
+const HabitDetailScreen = lazy(() => import("@/src/screens/HabitDetailScreen"));
+const MotivationalQuotesScreen = lazy(
+  () => import("@/src/screens/MotivationalQuotesScreen")
+);
+const TemplateLibraryScreen = lazy(
+  () => import("@/src/screens/TemplateLibraryScreen")
+);
+
+// Regular imports for tab screens (always loaded)
+import AnalyticsScreen from "@/src/screens/AnalyticsScreen";
+import HomeScreen from "@/src/screens/HomeScreen";
+import SettingsScreen from "@/src/screens/SettingsScreen";
+import StreakScreen from "@/src/screens/StreakScreen";
+
+// Loading fallback component
+function LoadingFallback() {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={[
+        styles.loadingContainer,
+        { backgroundColor: theme.colors.background },
+      ]}
+    >
+      <ActivityIndicator size="large" color={theme.colors.primary} />
+    </View>
+  );
+}
 
 export type MainTabParamList = {
   Home: undefined;
@@ -96,24 +120,49 @@ export default function AppNavigator() {
       />
       <Stack.Screen
         name="AddHabit"
-        component={AddHabitScreen}
         options={{ title: "Add Habit", presentation: "modal" }}
-      />
-      <Stack.Screen
-        name="HabitDetail"
-        component={HabitDetailScreen}
-        options={{ title: "Habit Details" }}
-      />
+      >
+        {(props) => (
+          <Suspense fallback={<LoadingFallback />}>
+            <AddHabitScreen {...props} />
+          </Suspense>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="HabitDetail" options={{ title: "Habit Details" }}>
+        {(props) => (
+          <Suspense fallback={<LoadingFallback />}>
+            <HabitDetailScreen {...props} />
+          </Suspense>
+        )}
+      </Stack.Screen>
       <Stack.Screen
         name="TemplateLibrary"
-        component={TemplateLibraryScreen}
         options={{ title: "Habit Templates", presentation: "modal" }}
-      />
+      >
+        {(props) => (
+          <Suspense fallback={<LoadingFallback />}>
+            <TemplateLibraryScreen {...props} />
+          </Suspense>
+        )}
+      </Stack.Screen>
       <Stack.Screen
         name="MotivationalQuotes"
-        component={MotivationalQuotesScreen}
         options={{ title: "Daily Inspiration", presentation: "modal" }}
-      />
+      >
+        {(props) => (
+          <Suspense fallback={<LoadingFallback />}>
+            <MotivationalQuotesScreen {...props} />
+          </Suspense>
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});

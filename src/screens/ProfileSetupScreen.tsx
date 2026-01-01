@@ -1,26 +1,30 @@
+import { useTheme } from "@/src/context/ThemeContext";
+import { uploadImageToCloudinary } from "@/src/services/cloudinary";
+import { useAuthStore } from "@/src/store/authStore";
+import { isValidHabitName } from "@/src/utils/validators";
 import React, { useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
-  Image,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
+  View,
 } from "react-native";
 import * as ImagePicker from "react-native-image-picker";
-import { useAuthStore } from "@/src/store/authStore";
-import { uploadImageToCloudinary } from "@/src/services/cloudinary";
-import { isValidHabitName } from "@/src/utils/validators";
 
 interface ProfileSetupScreenProps {
   navigation: any;
 }
 
-export default function ProfileSetupScreen({ navigation }: ProfileSetupScreenProps) {
+export default function ProfileSetupScreen({
+  navigation,
+}: ProfileSetupScreenProps) {
+  const { theme } = useTheme();
   const [name, setName] = useState("");
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -71,7 +75,7 @@ export default function ProfileSetupScreen({ navigation }: ProfileSetupScreenPro
         const response = await fetch(photoUri);
         const blob = await response.blob();
         const reader = new FileReader();
-        
+
         const base64 = await new Promise<string>((resolve, reject) => {
           reader.onloadend = () => {
             const base64String = (reader.result as string).split(",")[1];
@@ -87,7 +91,7 @@ export default function ProfileSetupScreen({ navigation }: ProfileSetupScreenPro
       await updateUserData({
         uid: user.uid,
         name: name.trim(),
-        photoUrl,
+        photoUrl: photoUrl ? photoUrl : undefined,
         createdAt: Date.now(),
       });
 
@@ -103,39 +107,71 @@ export default function ProfileSetupScreen({ navigation }: ProfileSetupScreenPro
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <View style={styles.content}>
-        <Text style={styles.title}>Complete Your Profile</Text>
-        <Text style={styles.subtitle}>Add your name and photo</Text>
+        <Text style={[styles.title, { color: theme.colors.text }]}>
+          Complete Your Profile
+        </Text>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+          Add your name and photo
+        </Text>
 
         <TouchableOpacity style={styles.imageContainer} onPress={pickImage}>
           {photoUri ? (
             <Image source={{ uri: photoUri }} style={styles.avatar} />
           ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>+</Text>
+            <View
+              style={[
+                styles.avatarPlaceholder,
+                { backgroundColor: theme.colors.border },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.avatarText,
+                  { color: theme.colors.textTertiary },
+                ]}
+              >
+                +
+              </Text>
             </View>
           )}
         </TouchableOpacity>
 
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              borderColor: theme.colors.border,
+              backgroundColor: theme.colors.surface,
+              color: theme.colors.text,
+            },
+          ]}
           placeholder="Your Name"
+          placeholderTextColor={theme.colors.textTertiary}
           value={name}
           onChangeText={setName}
           autoCapitalize="words"
         />
 
         <TouchableOpacity
-          style={[styles.button, uploading && styles.buttonDisabled]}
+          style={[
+            styles.button,
+            { backgroundColor: theme.colors.primary },
+            uploading && styles.buttonDisabled,
+          ]}
           onPress={handleComplete}
           disabled={uploading}
         >
           {uploading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={theme.colors.textInverse} />
           ) : (
-            <Text style={styles.buttonText}>Complete Setup</Text>
+            <Text
+              style={[styles.buttonText, { color: theme.colors.textInverse }]}
+            >
+              Complete Setup
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -146,7 +182,6 @@ export default function ProfileSetupScreen({ navigation }: ProfileSetupScreenPro
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   content: {
     flex: 1,
@@ -159,13 +194,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 8,
-    color: "#000",
   },
   subtitle: {
     fontSize: 16,
     textAlign: "center",
     marginBottom: 32,
-    color: "#666",
   },
   imageContainer: {
     marginBottom: 24,
@@ -179,26 +212,21 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "#e0e0e0",
     justifyContent: "center",
     alignItems: "center",
   },
   avatarText: {
     fontSize: 48,
-    color: "#999",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
     fontSize: 16,
-    backgroundColor: "#f9f9f9",
     width: "100%",
   },
   button: {
-    backgroundColor: "#007AFF",
     borderRadius: 8,
     padding: 16,
     alignItems: "center",
@@ -209,9 +237,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "600",
   },
 });
-

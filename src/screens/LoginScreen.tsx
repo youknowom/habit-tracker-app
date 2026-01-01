@@ -1,4 +1,5 @@
 import { Input } from "@/src/components/ui";
+import { useTheme } from "@/src/context/ThemeContext";
 import { auth } from "@/src/services/firebase";
 import { useAuthStore } from "@/src/store/authStore";
 import { isValidEmail, isValidPassword } from "@/src/utils/validators";
@@ -21,6 +22,7 @@ interface LoginScreenProps {
 }
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
+  const { theme } = useTheme();
   const { user } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -89,7 +91,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -113,11 +117,22 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               transition={{ type: "spring", delay: 200, damping: 12 }}
               style={styles.iconContainer}
             >
-              <Ionicons name="checkmark-circle" size={64} color="#4F46E5" />
+              <Ionicons
+                name="checkmark-circle"
+                size={64}
+                color={theme.colors.primary}
+              />
             </MotiView>
 
-            <Text style={styles.welcomeText}>Welcome Back</Text>
-            <Text style={styles.subtitleText}>
+            <Text style={[styles.welcomeText, { color: theme.colors.text }]}>
+              Welcome Back
+            </Text>
+            <Text
+              style={[
+                styles.subtitleText,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
               Sign in to continue building your habits
             </Text>
           </MotiView>
@@ -128,10 +143,19 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               from={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ type: "spring" }}
-              style={styles.errorContainer}
+              style={[
+                styles.errorContainer,
+                { backgroundColor: theme.colors.errorAlpha },
+              ]}
             >
-              <Ionicons name="alert-circle" size={20} color="#EF4444" />
-              <Text style={styles.errorText}>{errorMessage}</Text>
+              <Ionicons
+                name="alert-circle"
+                size={20}
+                color={theme.colors.error}
+              />
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                {errorMessage}
+              </Text>
             </MotiView>
           ) : null}
 
@@ -178,14 +202,25 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               disabled={loading}
               style={({ pressed }) => [
                 styles.signInButton,
+                {
+                  backgroundColor: theme.colors.primary,
+                  shadowColor: theme.colors.primary,
+                },
                 loading && styles.buttonDisabled,
                 pressed && styles.buttonPressed,
               ]}
             >
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={theme.colors.textInverse} />
               ) : (
-                <Text style={styles.signInButtonText}>Sign In</Text>
+                <Text
+                  style={[
+                    styles.signInButtonText,
+                    { color: theme.colors.textInverse },
+                  ]}
+                >
+                  Sign In
+                </Text>
               )}
             </Pressable>
           </MotiView>
@@ -197,10 +232,16 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             transition={{ type: "timing", duration: 600, delay: 500 }}
             style={styles.signupContainer}
           >
-            <Text style={styles.signupText}>
+            <Text
+              style={[styles.signupText, { color: theme.colors.textSecondary }]}
+            >
               Don&apos;t have an account?{" "}
               <Pressable onPress={() => navigation.navigate("Signup")}>
-                <Text style={styles.signupLink}>Sign Up</Text>
+                <Text
+                  style={[styles.signupLink, { color: theme.colors.primary }]}
+                >
+                  Sign Up
+                </Text>
               </Pressable>
             </Text>
           </MotiView>
@@ -213,7 +254,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
   },
   keyboardView: {
     flex: 1,
@@ -235,20 +275,17 @@ const styles = StyleSheet.create({
   welcomeText: {
     fontSize: 32,
     fontWeight: "700",
-    color: "#111827",
     marginBottom: 8,
     letterSpacing: -0.5,
   },
   subtitleText: {
     fontSize: 16,
-    color: "#6B7280",
     textAlign: "center",
     lineHeight: 24,
   },
   errorContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FEE2E2",
     padding: 16,
     borderRadius: 12,
     marginBottom: 24,
@@ -257,7 +294,6 @@ const styles = StyleSheet.create({
   errorText: {
     flex: 1,
     fontSize: 14,
-    color: "#DC2626",
     fontWeight: "500",
   },
   formSection: {
@@ -267,13 +303,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   signInButton: {
-    backgroundColor: "#4F46E5",
     height: 56,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
-    shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -282,7 +316,6 @@ const styles = StyleSheet.create({
   signInButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#FFFFFF",
     letterSpacing: 0.5,
   },
   buttonDisabled: {
@@ -297,10 +330,8 @@ const styles = StyleSheet.create({
   },
   signupText: {
     fontSize: 15,
-    color: "#6B7280",
   },
   signupLink: {
-    color: "#4F46E5",
     fontWeight: "600",
   },
 });

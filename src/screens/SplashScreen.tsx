@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
-import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { useTheme } from "@/src/context/ThemeContext";
 import { useAuthStore } from "@/src/store/authStore";
+import React, { useEffect } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 interface SplashScreenProps {
   navigation: {
@@ -9,6 +10,7 @@ interface SplashScreenProps {
 }
 
 export default function SplashScreen({ navigation }: SplashScreenProps) {
+  const { theme } = useTheme();
   const { initialized, user, userData } = useAuthStore();
 
   useEffect(() => {
@@ -23,8 +25,10 @@ export default function SplashScreen({ navigation }: SplashScreenProps) {
   }, [initialized, user, userData]);
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#007AFF" />
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <ActivityIndicator size="large" color={theme.colors.primary} />
     </View>
   );
 }
@@ -34,6 +38,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
   },
 });

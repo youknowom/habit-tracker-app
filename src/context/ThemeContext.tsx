@@ -20,6 +20,8 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+export { ThemeContext };
+
 const THEME_STORAGE_KEY = "@habit_tracker_theme";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

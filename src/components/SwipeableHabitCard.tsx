@@ -53,8 +53,16 @@ export const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
             { transform: [{ translateX: editTranslate }] },
           ]}
         >
-          <Ionicons name="create-outline" size={24} color="#fff" />
-          <Text style={styles.actionText}>Edit</Text>
+          <Ionicons
+            name="create-outline"
+            size={24}
+            color={theme.colors.textInverse}
+          />
+          <Text
+            style={[styles.actionText, { color: theme.colors.textInverse }]}
+          >
+            Edit
+          </Text>
         </Animated.View>
         <Animated.View
           style={[
@@ -64,8 +72,16 @@ export const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
             { transform: [{ translateX: deleteTranslate }] },
           ]}
         >
-          <Ionicons name="trash-outline" size={24} color="#fff" />
-          <Text style={styles.actionText}>Delete</Text>
+          <Ionicons
+            name="trash-outline"
+            size={24}
+            color={theme.colors.textInverse}
+          />
+          <Text
+            style={[styles.actionText, { color: theme.colors.textInverse }]}
+          >
+            Delete
+          </Text>
         </Animated.View>
       </View>
     );
@@ -133,7 +149,6 @@ const styles = StyleSheet.create({
   },
   deleteButton: {},
   actionText: {
-    color: "#fff",
     fontSize: 12,
     fontWeight: "600",
     marginTop: 4,
